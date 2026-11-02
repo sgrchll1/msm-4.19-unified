@@ -54,8 +54,8 @@ jobs:
 
       - name: Start Build (with log)
         env:
-          KBUILD_BUILD_USER: "Hoshino"
-          KBUILD_BUILD_HOST: "Yoru"
+          KBUILD_BUILD_USER: "meta"
+          KBUILD_BUILD_HOST: "build"
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           PIXELDRAIN_API_KEY: ${{ secrets.PIXELDRAIN_API_KEY }}
