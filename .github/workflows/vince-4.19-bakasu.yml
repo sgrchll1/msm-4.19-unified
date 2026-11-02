@@ -1,0 +1,95 @@
+name: vince-4.19.325-ksu
+
+on:
+  workflow_dispatch:
+  watch:
+    types: [started]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  buildtest:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        variant: [KSU, NonKSU]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set Swap Space
+        uses: pierotofy/set-swap-space@master
+        with:
+          swap-size-gb: 10
+
+      - name: Install Packages
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            dialog bash sed wget git curl zip tar jq expect make cmake automake autoconf \
+            llvm lld lldb clang gcc binutils bison perl gperf gawk flex bc python3 python3-pip zstd \
+            openssl unzip cpio build-essential ccache liblz4-tool libsdl1.2-dev libstdc++6 \
+            libxml2 libxml2-utils lzop pngcrush schedtool squashfs-tools xsltproc zlib1g-dev \
+            libncurses5-dev bzip2 gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf \
+            gcc-arm-linux-gnueabi dos2unix kmod
+          
+          # Install Telethon untuk Userbot
+          python3 -m pip install telethon
+          
+      - name: Setup ZYC Clang
+        run: |
+          mkdir -p clang-zyc
+          cd clang-zyc
+            wget -q $(curl -k https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-12-link.txt) -O zyc-clang.tar.gz
+            tar -xf zyc-clang.tar.gz
+            rm -f zyc-clang.tar.gz
+  
+      - name: Setup KernelSU (Legacy)
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/manipvlator/KernelSU/refs/heads/main/kernel/setup.sh" | bash -s main
+          curl https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh | bash -s master
+
+      - name: Start Build (with log)
+        env:
+          KBUILD_BUILD_USER: "meta"
+          KBUILD_BUILD_HOST: "build"
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          PIXELDRAIN_API_KEY: ${{ secrets.PIXELDRAIN_API_KEY }}
+          TELE_API_ID: ${{ secrets.TELE_API_ID }}
+          TELE_API_HASH: ${{ secrets.TELE_API_HASH }}
+          TELE_SESSION: ${{ secrets.TELE_SESSION }}
+        run: |
+          mkdir -p logs
+          bash build-vince-4.19.325-ksu.sh ${{ matrix.variant }} 2>&1 | tee logs/build-${{ matrix.variant }}.txt
+
+      - name: Upload Build Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.variant }}
+          path: logs/build-${{ matrix.variant }}.txt
+
+      - name: Upload AnyKernel Zip
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: anykernel-zip-${{ matrix.variant }}
+          path: AnyKernel/*.zip
+
+      - name: Upload Kernel Image
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-gz-${{ matrix.variant }}
+          path: out/arch/arm64/boot/Image.gz
+
+      - name: Upload DTB
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-gz-dtb-${{ matrix.variant }}
+          path: out/arch/arm64/boot/Image.gz-dtb
